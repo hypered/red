@@ -22,3 +22,8 @@ $ nix-build --attr highlight
 $ result/bin/highlight input.hs
 $ cat input.hs.html
 ```
+
+There is also a `red` binary. It is currently doing nothing, but in the future,
+it should do the same as `highlight` with some post-processing (mainly to
+output just the HTML code corresponding to the highlighted code, instead of a
+complete standalone HTML document).

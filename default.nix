@@ -1,6 +1,7 @@
 let
   sources = import ./nix/sources.nix;
-  pkgs = import sources.nixpkgs { };
+  overlays = import ./nix/overlays.nix;
+  pkgs = import sources.nixpkgs { inherit overlays; };
   modules = import "${sources.home-manager}/modules/default.nix" {
     inherit pkgs;
     configuration = ./home-manager-configuration.nix;
@@ -11,6 +12,8 @@ let
     modules.config.programs.neovim.generatedConfigViml;
 in
 {
+  # Build with nix-build -A <attr>
+
   # A configured version of nvim.
   neovim = pkgs.writeScriptBin "nvim" ''
     ${neovim-bin}/bin/nvim \
@@ -39,4 +42,8 @@ in
       -c "qa!" "$INPUT_FILE" \
       > /dev/null
   '';
+
+  # Same as `highlight`, with some post-processing applied.
+  binaries = pkgs.haskellPackages.red;
+  haddock = pkgs.haskellPackages.red.doc;
 }
