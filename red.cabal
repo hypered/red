@@ -30,8 +30,10 @@ common common-options
 common common-dependencies
   build-depends:
       base-noprelude >=4.7 && <5
+    , blaze-html
     , optparse-applicative
     , protolude
+    , tagsoup
 
 library
   import: common-extensions, common-options, common-dependencies
