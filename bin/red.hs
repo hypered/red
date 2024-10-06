@@ -22,6 +22,8 @@ main = A.execParser parserInfo >>= run
 --------------------------------------------------------------------------------
 data Command
   = Highlight Mode FilePath
+  | -- | Show the CSS used in a standalone document.
+    CSS
   | Extract -- Mainly used for debugging the underlying extraction logic.
   deriving (Show)
 
@@ -53,6 +55,12 @@ parser =
             (Highlight <$> parserMode <*> parserFilePath)
             (A.progDesc "Highlight a file")
         )
+        <> A.command
+          "css"
+          ( A.info
+              (pure CSS)
+              (A.progDesc "Display the CSS used in a standalone document")
+          )
         <> A.command
           "extract"
           ( A.info
@@ -97,6 +105,7 @@ run command =
         highlight fn outputPath
         content <- readFile outputPath
         putStr . Utf8.renderHtml $ extract content
+    CSS -> putStr style
     Extract -> do
       content <- getContents
       putStr . Utf8.renderHtml $ extract content
