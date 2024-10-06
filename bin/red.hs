@@ -73,7 +73,7 @@ run command =
         let outputPath = dir </> "document.html"
         highlight fn outputPath
         content <- readFile outputPath
-        putStr . Utf8.renderHtml . document $ extract content
+        putStr . Utf8.renderHtml . document fn $ extract content
     Highlight CodeBlock fn ->
       withSystemTempDirectory "red" $ \dir -> do
         let outputPath = dir </> "document.html"
@@ -174,9 +174,39 @@ markup = mconcat . map go
 --------------------------------------------------------------------------------
 
 -- | Wrap some HTML content in a complete document.
-document :: Html -> Html
-document content = do
+document :: FilePath -> Html -> Html
+document fn content = do
   H.docType
-  H.html $
-    H.pre $
-      H.code content
+  H.html $ do
+    H.head $ do
+      H.meta ! A.charset "UTF-8"
+      H.title $ H.string fn
+      H.style $ H.text style
+    H.body $
+      H.pre $
+        H.code content
+
+-- | CSS are copied from the Neovim-generated HTML, with font and spacing tweaks to
+-- match my xterm output (switching back and forth between a fullscreen firefox and
+-- the original code displayed in vim is almost exactly the same).
+style :: Text
+style =
+  unlines
+    [ "* {font-family: monospace}"
+    , "body {background-color: #ffffff; color: #000000; margin: 0px; padding: 0px;}"
+    , ".String {color: #0000c0}"
+    , ".hsImportModuleName {}"
+    , ".Statement {color: #c00000}"
+    , ".Special {color: #8700ff}"
+    , ".hsImportGroup {}"
+    , ".Constant {color: #0000c0}"
+    , ".hsDelimiter {}"
+    , ".PreProc {color: #c000c0}"
+    , ".Comment {color: #6c6c6c}"
+    , ".ConId {}"
+    , ".VarId {}"
+    , ".hsImportList {}"
+    , ".Type {color: #c00000}"
+    , ".Todo {background-color: #ffff00; color: #000000}"
+    , "pre {margin: 0px; width: 93.10ch; white-space: pre-wrap; word-break: break-all; padding: 0px; font-size:11.5px; letter-spacing: 0.08px; margin-top: -0.5px; margin-left: -0.5px;}"
+    ]
