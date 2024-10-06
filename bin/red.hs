@@ -6,6 +6,8 @@ import Data.List (dropWhileEnd)
 import Options.Applicative qualified as A
 import Protolude
 import System.Environment
+import System.FilePath ((</>))
+import System.IO.Temp (withSystemTempDirectory)
 import System.Process
 import Text.Blaze.Html.Renderer.Utf8 qualified as Utf8 (renderHtml)
 import Text.Blaze.Html5 (Html, (!))
@@ -60,21 +62,24 @@ argumentFilePath = A.argument A.str (A.metavar "FILENAME")
 run :: Command -> IO ()
 run command =
   case command of
-    Highlight Neovim fn -> do
-      let outputPath = fn <> ".html"
-      highlight fn outputPath
-      content <- readFile outputPath
-      putStr content
-    Highlight Standalone fn -> do
-      let outputPath = fn <> ".html"
-      highlight fn outputPath
-      content <- readFile outputPath
-      putStr . Utf8.renderHtml . document $ extract content
-    Highlight CodeBlock fn -> do
-      let outputPath = fn <> ".html"
-      highlight fn outputPath
-      content <- readFile outputPath
-      putStr . Utf8.renderHtml $ extract content
+    Highlight Neovim fn ->
+      withSystemTempDirectory "red" $ \dir -> do
+        let outputPath = dir </> "document.html"
+        highlight fn outputPath
+        content <- readFile outputPath
+        putStr content
+    Highlight Standalone fn ->
+      withSystemTempDirectory "red" $ \dir -> do
+        let outputPath = dir </> "document.html"
+        highlight fn outputPath
+        content <- readFile outputPath
+        putStr . Utf8.renderHtml . document $ extract content
+    Highlight CodeBlock fn ->
+      withSystemTempDirectory "red" $ \dir -> do
+        let outputPath = dir </> "document.html"
+        highlight fn outputPath
+        content <- readFile outputPath
+        putStr . Utf8.renderHtml $ extract content
     Extract -> do
       content <- getContents
       putStr . Utf8.renderHtml $ extract content

@@ -31,10 +31,12 @@ common common-dependencies
   build-depends:
       base-noprelude >=4.7 && <5
     , blaze-html
+    , filepath
     , optparse-applicative
     , process
     , protolude
     , tagsoup
+    , temporary
 
 library
   import: common-extensions, common-options, common-dependencies
