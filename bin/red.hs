@@ -17,7 +17,7 @@ import Text.HTML.TagSoup
 
 --------------------------------------------------------------------------------
 main :: IO ()
-main = A.execParser opts >>= run
+main = A.execParser parserInfo >>= run
 
 --------------------------------------------------------------------------------
 data Command
@@ -34,29 +34,46 @@ data Mode
     CodeBlock
   deriving (Show)
 
-opts :: A.ParserInfo Command
-opts =
+--------------------------------------------------------------------------------
+parserInfo :: A.ParserInfo Command
+parserInfo =
   A.info
-    (parseCommand <**> A.helper)
+    (parser <**> A.helper)
     ( A.fullDesc
         <> A.progDesc "red - syntax highlighting using Neovim"
         <> A.header "red"
     )
 
-parseCommand :: A.Parser Command
-parseCommand =
+parser :: A.Parser Command
+parser =
   A.hsubparser
-    ( A.command "highlight" (A.info (Highlight <$> neovimModeParser <*> argumentFilePath) (A.progDesc "Highlight a file"))
-        <> A.command "extract" (A.info (pure Extract) (A.progDesc "Extract code block from stdin"))
+    ( A.command
+        "highlight"
+        ( A.info
+            (Highlight <$> parserMode <*> parserFilePath)
+            (A.progDesc "Highlight a file")
+        )
+        <> A.command
+          "extract"
+          ( A.info
+              (pure Extract)
+              (A.progDesc "Extract code block from stdin")
+          )
     )
 
-neovimModeParser :: A.Parser Mode
-neovimModeParser =
-  A.flag CodeBlock Neovim (A.long "neovim" <> A.help "Highlight using neovim")
-    <|> A.flag CodeBlock Standalone (A.long "standalone" <> A.help "Standalone highlight mode")
+parserMode :: A.Parser Mode
+parserMode =
+  A.flag
+    CodeBlock
+    Neovim
+    (A.long "neovim" <> A.help "Highlight using neovim")
+    <|> A.flag
+      CodeBlock
+      Standalone
+      (A.long "standalone" <> A.help "Standalone highlight mode")
 
-argumentFilePath :: A.Parser FilePath
-argumentFilePath = A.argument A.str (A.metavar "FILENAME")
+parserFilePath :: A.Parser FilePath
+parserFilePath = A.argument A.str (A.metavar "FILENAME")
 
 --------------------------------------------------------------------------------
 run :: Command -> IO ()
