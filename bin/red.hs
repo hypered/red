@@ -131,8 +131,8 @@ getPreBlock :: Text -> [Tag Text]
 getPreBlock content =
   parseTags content
     & canonicalizeTags
-    & dropWhile (~/= (TagOpen @Text "pre" []))
-    & dropWhileEnd (~/= (TagClose @Text "pre"))
+    & dropWhile (~/= TagOpen @Text "pre" [])
+    & dropWhileEnd (~/= TagClose @Text "pre")
 
 --------------------------------------------------------------------------------
 
@@ -153,7 +153,7 @@ parse (TagOpen "pre" [] : rest) = go rest
   go (TagText t : rst) = Text t : go rst
   go (TagOpen "span" [("class", c)] : TagText t : TagClose "span" : rst) =
     Span c t : go rst
-  go (TagClose "pre" : []) = []
+  go [TagClose "pre"] = []
   go _ = panic "Unexpected Tagsoup element."
 parse _ = panic "Unexpected first Tagsoup element."
 
@@ -174,5 +174,4 @@ document content = do
   H.docType
   H.html $
     H.pre $
-      H.code $
-        content
+      H.code content
