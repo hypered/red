@@ -3,14 +3,14 @@ module Main
   ) where
 
 import Data.List (dropWhileEnd)
-import qualified Options.Applicative as A
+import Options.Applicative qualified as A
 import Protolude
 import System.Environment
 import System.Process
-import Text.Blaze.Html5 (Html, (!))
-import qualified Text.Blaze.Html5 as H
-import qualified Text.Blaze.Html5.Attributes as A
 import Text.Blaze.Html.Renderer.Utf8 qualified as Utf8 (renderHtml)
+import Text.Blaze.Html5 (Html, (!))
+import Text.Blaze.Html5 qualified as H
+import Text.Blaze.Html5.Attributes qualified as A
 import Text.HTML.TagSoup
 
 --------------------------------------------------------------------------------
@@ -24,27 +24,34 @@ data Command
   deriving (Show)
 
 data Mode
-  = Neovim -- ^ Output what Neovim does
-  | Standalone -- ^ Output a standalone HTML document
-  | CodeBlock -- ^ Output only the code block
+  = -- | Output what Neovim does
+    Neovim
+  | -- | Output a standalone HTML document
+    Standalone
+  | -- | Output only the code block
+    CodeBlock
   deriving (Show)
 
 opts :: A.ParserInfo Command
-opts = A.info (parseCommand <**> A.helper)
-       (A.fullDesc
+opts =
+  A.info
+    (parseCommand <**> A.helper)
+    ( A.fullDesc
         <> A.progDesc "red - syntax highlighting using Neovim"
-        <> A.header "red")
+        <> A.header "red"
+    )
 
 parseCommand :: A.Parser Command
-parseCommand = A.hsubparser
-  (  A.command "highlight" (A.info (Highlight <$> neovimModeParser <*> argumentFilePath) (A.progDesc "Highlight a file"))
-  <> A.command "extract" (A.info (pure Extract) (A.progDesc "Extract code block from stdin"))
-  )
+parseCommand =
+  A.hsubparser
+    ( A.command "highlight" (A.info (Highlight <$> neovimModeParser <*> argumentFilePath) (A.progDesc "Highlight a file"))
+        <> A.command "extract" (A.info (pure Extract) (A.progDesc "Extract code block from stdin"))
+    )
 
 neovimModeParser :: A.Parser Mode
 neovimModeParser =
-      A.flag CodeBlock Neovim (A.long "neovim" <> A.help "Highlight using neovim")
-  <|> A.flag CodeBlock Standalone (A.long "standalone" <> A.help "Standalone highlight mode")
+  A.flag CodeBlock Neovim (A.long "neovim" <> A.help "Highlight using neovim")
+    <|> A.flag CodeBlock Standalone (A.long "standalone" <> A.help "Standalone highlight mode")
 
 argumentFilePath :: A.Parser FilePath
 argumentFilePath = A.argument A.str (A.metavar "FILENAME")
@@ -84,18 +91,25 @@ highlight fn outputPath = do
 
 highlight' :: FilePath -> FilePath -> FilePath -> FilePath -> IO ExitCode
 highlight' neovimBin neovimConf fn outputFile = do
-  let args = [ "--clean"
-              , "-es"
-              , "-u", neovimConf
-              , "-i", "NONE"
-              , "-c", "set columns=90"
-              , "-c", "TOhtml"
-              , "-c", "w! " ++ outputFile
-              , "-c", "qa!"
-              , fn
-              ]
+  let args =
+        [ "--clean"
+        , "-es"
+        , "-u"
+        , neovimConf
+        , "-i"
+        , "NONE"
+        , "-c"
+        , "set columns=90"
+        , "-c"
+        , "TOhtml"
+        , "-c"
+        , "w! " ++ outputFile
+        , "-c"
+        , "qa!"
+        , fn
+        ]
   let process = proc neovimBin args
-  (_, _, _, h) <- createProcess process { std_out = NoStream, std_err = NoStream }
+  (_, _, _, h) <- createProcess process {std_out = NoStream, std_err = NoStream}
   waitForProcess h
 
 --------------------------------------------------------------------------------
@@ -124,12 +138,12 @@ getPreBlock content =
 
 -- | Represent a dumbed-down HTML element, but enough te represent the
 -- Neovim-generated syntax highlighted code.
-data Elem =
-    Text Text
-  | Span Text Text
-    -- ^ A span, with a class name and a text content. This includes
+data Elem
+  = Text Text
+  | -- | A span, with a class name and a text content. This includes
     -- the closing tag.
-  deriving Show
+    Span Text Text
+  deriving (Show)
 
 -- | Turn a tagsoup as obtained by "getPreBlock" to our simple HTML
 -- representation.
