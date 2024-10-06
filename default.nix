@@ -8,11 +8,13 @@ let
   };
 
   neovim-bin = modules.config.programs.neovim.finalPackage;
-  neovim-config = pkgs.writeText "init.vim"
-    modules.config.programs.neovim.generatedConfigViml;
-in
+in rec
 {
   # Build with nix-build -A <attr>
+
+  # A configuration file for nvim.
+  neovim-config = pkgs.writeText "init.vim"
+    modules.config.programs.neovim.generatedConfigViml;
 
   # A configured version of nvim.
   neovim = pkgs.writeScriptBin "nvim" ''
@@ -46,4 +48,18 @@ in
   # Same as `highlight`, with some post-processing applied.
   binaries = pkgs.haskellPackages.red;
   haddock = pkgs.haskellPackages.red.doc;
+
+  # A shell to try out our binaries
+  # Run with nix-shell default.nix -A shell
+  shell = pkgs.mkShell {
+    buildInputs = [
+      binaries
+      neovim-bin
+    ];
+    shellHook = ''
+      source <(red --bash-completion-script `which red`)
+      export RED_NEOVIM_BIN=${neovim-bin}/bin/nvim
+      export RED_NEOVIM_CONF=${neovim-config}
+    '';
+  };
 }

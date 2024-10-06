@@ -3,7 +3,10 @@ module Main
   ) where
 
 import Data.List (dropWhileEnd)
+import qualified Options.Applicative as A
 import Protolude
+import System.Environment
+import System.Process
 import Text.Blaze.Html5 (Html, (!))
 import qualified Text.Blaze.Html5 as H
 import qualified Text.Blaze.Html5.Attributes as A
@@ -12,9 +15,88 @@ import Text.HTML.TagSoup
 
 --------------------------------------------------------------------------------
 main :: IO ()
-main = do
-  content <- getContents
-  putStr . Utf8.renderHtml $ extract content
+main = A.execParser opts >>= run
+
+--------------------------------------------------------------------------------
+data Command
+  = Highlight Mode FilePath
+  | Extract -- Mainly used for debugging the underlying extraction logic.
+  deriving (Show)
+
+data Mode
+  = Neovim -- ^ Output what Neovim does
+  | Standalone -- ^ Output a standalone HTML document
+  | CodeBlock -- ^ Output only the code block
+  deriving (Show)
+
+opts :: A.ParserInfo Command
+opts = A.info (parseCommand <**> A.helper)
+       (A.fullDesc
+        <> A.progDesc "red - syntax highlighting using Neovim"
+        <> A.header "red")
+
+parseCommand :: A.Parser Command
+parseCommand = A.hsubparser
+  (  A.command "highlight" (A.info (Highlight <$> neovimModeParser <*> argumentFilePath) (A.progDesc "Highlight a file"))
+  <> A.command "extract" (A.info (pure Extract) (A.progDesc "Extract code block from stdin"))
+  )
+
+neovimModeParser :: A.Parser Mode
+neovimModeParser =
+      A.flag CodeBlock Neovim (A.long "neovim" <> A.help "Highlight using neovim")
+  <|> A.flag CodeBlock Standalone (A.long "standalone" <> A.help "Standalone highlight mode")
+
+argumentFilePath :: A.Parser FilePath
+argumentFilePath = A.argument A.str (A.metavar "FILENAME")
+
+--------------------------------------------------------------------------------
+run :: Command -> IO ()
+run command =
+  case command of
+    Highlight Neovim fn -> do
+      let outputPath = fn <> ".html"
+      highlight fn outputPath
+      content <- readFile outputPath
+      putStr content
+    Highlight Standalone fn -> do
+      let outputPath = fn <> ".html"
+      highlight fn outputPath
+      content <- readFile outputPath
+      putStr . Utf8.renderHtml . document $ extract content
+    Highlight CodeBlock fn -> do
+      let outputPath = fn <> ".html"
+      highlight fn outputPath
+      content <- readFile outputPath
+      putStr . Utf8.renderHtml $ extract content
+    Extract -> do
+      content <- getContents
+      putStr . Utf8.renderHtml $ extract content
+
+--------------------------------------------------------------------------------
+
+-- | Use Neovim to syntax highlight a file. This is similar to `nix-build -A
+-- highlight`.
+highlight :: FilePath -> FilePath -> IO ()
+highlight fn outputPath = do
+  neovimBin <- getEnv "RED_NEOVIM_BIN"
+  neovimConf <- getEnv "RED_NEOVIM_CONF"
+  void $ highlight' neovimBin neovimConf fn outputPath
+
+highlight' :: FilePath -> FilePath -> FilePath -> FilePath -> IO ExitCode
+highlight' neovimBin neovimConf fn outputFile = do
+  let args = [ "--clean"
+              , "-es"
+              , "-u", neovimConf
+              , "-i", "NONE"
+              , "-c", "set columns=90"
+              , "-c", "TOhtml"
+              , "-c", "w! " ++ outputFile
+              , "-c", "qa!"
+              , fn
+              ]
+  let process = proc neovimBin args
+  (_, _, _, h) <- createProcess process { std_out = NoStream, std_err = NoStream }
+  waitForProcess h
 
 --------------------------------------------------------------------------------
 
@@ -40,11 +122,13 @@ getPreBlock content =
 
 --------------------------------------------------------------------------------
 
--- | Represent a dumb-down HTML element, but enough te represent the
+-- | Represent a dumbed-down HTML element, but enough te represent the
 -- Neovim-generated syntax highlighted code.
 data Elem =
     Text Text
   | Span Text Text
+    -- ^ A span, with a class name and a text content. This includes
+    -- the closing tag.
   deriving Show
 
 -- | Turn a tagsoup as obtained by "getPreBlock" to our simple HTML
@@ -63,7 +147,18 @@ parse _ = panic "Unexpected first Tagsoup element."
 
 -- | Convert our simple HTML representation to blaze-html.
 markup :: [Elem] -> Html
-markup = H.pre . H.code . mconcat . map go
+markup = mconcat . map go
  where
   go (Text t) = H.text t
   go (Span c t) = H.span ! A.class_ (H.toValue c) $ H.text t
+
+--------------------------------------------------------------------------------
+
+-- | Wrap some HTML content in a complete document.
+document :: Html -> Html
+document content = do
+  H.docType
+  H.html $
+    H.pre $
+      H.code $
+        content

@@ -32,6 +32,7 @@ common common-dependencies
       base-noprelude >=4.7 && <5
     , blaze-html
     , optparse-applicative
+    , process
     , protolude
     , tagsoup
 
