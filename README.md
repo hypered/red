@@ -27,3 +27,8 @@ There is also a `red` binary. It is similar to the `highlight` script, with
 some additional post-processing (mainly to output just the HTML code
 corresponding to the highlighted code, instead of a complete standalone HTML
 document).
+
+```
+$ nix-shell default --attr shell
+$ red highlight --standalone bin/red.hs > red.html
+```

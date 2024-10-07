@@ -207,6 +207,9 @@ document fn content = do
     H.head $ do
       H.meta ! A.charset "UTF-8"
       H.title $ H.string fn
+      H.link
+        ! A.rel "stylesheet"
+        ! A.href "https://cdn.jsdelivr.net/gh/maxwell-k/dejavu-sans-mono-web-font/index.css"
       H.style $ H.text style
     H.body $
       H.pre $
@@ -218,7 +221,7 @@ document fn content = do
 style :: Text
 style =
   unlines
-    [ "* {font-family: monospace}"
+    [ "body {font-family: 'DejaVu Sans Mono', monospace;}"
     , "body {background-color: #ffffff; color: #000000; margin: 0px; padding: 0px;}"
     , ".String {color: #0000c0}"
     , ".hsImportModuleName {}"
