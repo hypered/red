@@ -31,6 +31,7 @@ common common-dependencies
   build-depends:
       base-noprelude >=4.7 && <5
     , blaze-html
+    , directory
     , filepath
     , optparse-applicative
     , process

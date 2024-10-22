@@ -1,3 +1,5 @@
+{-# LANGUAGE ApplicativeDo #-}
+
 module Main
   ( main
   ) where
@@ -5,6 +7,7 @@ module Main
 import Data.List (dropWhileEnd)
 import Options.Applicative qualified as A
 import Protolude
+import System.Directory (removeFile)
 import System.Environment
 import System.FilePath ((</>))
 import System.IO.Temp (withSystemTempDirectory)
@@ -21,7 +24,9 @@ main = A.execParser parserInfo >>= run
 
 --------------------------------------------------------------------------------
 data Command
-  = Highlight Mode FilePath
+  =
+    -- If the input path is Nothing, use stdin.
+    Highlight Mode (Maybe FilePath)
   | -- | Show the CSS used in a standalone document.
     CSS
   | Extract -- Mainly used for debugging the underlying extraction logic.
@@ -80,29 +85,36 @@ parserMode =
       Standalone
       (A.long "standalone" <> A.help "Standalone highlight mode")
 
-parserFilePath :: A.Parser FilePath
-parserFilePath = A.argument A.str (A.metavar "FILENAME")
+parserFilePath :: A.Parser (Maybe FilePath)
+parserFilePath = do
+  path <- A.argument A.str (A.metavar "FILENAME")
+  pure (
+    if path == "-"
+    then Nothing
+    else Just path
+    )
 
 --------------------------------------------------------------------------------
 run :: Command -> IO ()
 run command =
   case command of
-    Highlight Neovim fn ->
+    Highlight Neovim mfn ->
       withSystemTempDirectory "red" $ \dir -> do
         let outputPath = dir </> "document.html"
-        highlight fn outputPath
+        highlight mfn outputPath
         content <- readFile outputPath
         putStr content
-    Highlight Standalone fn ->
+    Highlight Standalone mfn ->
       withSystemTempDirectory "red" $ \dir -> do
         let outputPath = dir </> "document.html"
-        highlight fn outputPath
+        highlight mfn outputPath
         content <- readFile outputPath
-        putStr . Utf8.renderHtml . document fn $ extract content
-    Highlight CodeBlock fn ->
+        putStr . Utf8.renderHtml . document (maybe "stdin" identity mfn) $
+          extract content
+    Highlight CodeBlock mfn ->
       withSystemTempDirectory "red" $ \dir -> do
         let outputPath = dir </> "document.html"
-        highlight fn outputPath
+        highlight mfn outputPath
         content <- readFile outputPath
         putStr . Utf8.renderHtml $ extract content
     CSS -> putStr style
@@ -114,14 +126,21 @@ run command =
 
 -- | Use Neovim to syntax highlight a file. This is similar to `nix-build -A
 -- highlight`.
-highlight :: FilePath -> FilePath -> IO ()
-highlight fn outputPath = do
+highlight :: Maybe FilePath -> FilePath -> IO ()
+highlight mfn outputPath = do
   neovimBin <- getEnv "RED_NEOVIM_BIN"
   neovimConf <- getEnv "RED_NEOVIM_CONF"
-  void $ highlight' neovimBin neovimConf fn outputPath
+  void $ highlight' neovimBin neovimConf mfn outputPath
 
-highlight' :: FilePath -> FilePath -> FilePath -> FilePath -> IO ExitCode
-highlight' neovimBin neovimConf fn outputFile = do
+highlight' :: FilePath -> FilePath -> Maybe FilePath -> FilePath -> IO ExitCode
+highlight' neovimBin neovimConf mfn outputFile = do
+  let fnTmp = "/tmp/red-highlighting-input.hs"
+  fn <- case mfn of
+    Just fn -> pure fn
+    Nothing -> do
+      content <- getContents
+      writeFile fnTmp content
+      pure fnTmp
   let args =
         [ "--clean"
         , "-es"
@@ -140,8 +159,12 @@ highlight' neovimBin neovimConf fn outputFile = do
         , fn
         ]
   let process = proc neovimBin args
-  (_, _, _, h) <- createProcess process {std_out = NoStream, std_err = NoStream}
-  waitForProcess h
+  -- It seems neovim wants an stdin, but we're already using it above with
+  -- getContents. So we create a pipe.
+  (_, _, _, h) <- createProcess process {std_in = CreatePipe, std_out = NoStream, std_err = NoStream}
+  code <- waitForProcess h
+  when (isNothing mfn) $ removeFile fnTmp
+  pure code
 
 --------------------------------------------------------------------------------
 
