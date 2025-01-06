@@ -49,6 +49,13 @@ in rec
   binaries = pkgs.haskellPackages.red;
   haddock = pkgs.haskellPackages.red.doc;
 
+  wrapped-binaries = pkgs.writeShellScriptBin "red" ''
+    #!/bin/bash
+    export RED_NEOVIM_BIN=${neovim-bin}/bin/nvim
+    export RED_NEOVIM_CONF=${neovim-config}
+    exec ${binaries}/bin/red "$@"
+  '';
+
   # A shell to try out our binaries
   # Run with nix-shell default.nix -A shell
   shell = pkgs.mkShell {
